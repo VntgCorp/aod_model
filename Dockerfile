@@ -7,7 +7,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-ENV GOOGLE_APPLICATION_CREDENTIALS=/app/config/oneteam-vpc-9-625b58d522f1.json
 ENV GCS_BUCKET_NAME=oneteam-vpc-9-ml-models
 ENV GCP_PROJECT_ID=oneteam-vpc-9
 ENV BQ_DATASET=ml_models

@@ -4,3 +4,6 @@ __pycache__
 .git
 *.ipynb
 프로그램조건.txt
+config/
+deploy_secrets.bat
+run_local.bat
