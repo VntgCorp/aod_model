@@ -51,8 +51,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo [2/5] Granting BigQuery roles to Cloud Run service account...
-for /f "delims=" %%N in ('gcloud projects describe %PROJECT_ID% --format="value(projectNumber)"') do set PROJECT_NUMBER=%%N
-set SA=%PROJECT_NUMBER%-compute@developer.gserviceaccount.com
+set SA=ado2-invoker@oneteam-vpc-9.iam.gserviceaccount.com
 echo   Service Account: %SA%
 call gcloud projects add-iam-policy-binding %PROJECT_ID% --member="serviceAccount:%SA%" --role="roles/bigquery.dataEditor" --quiet 2>nul
 if %errorlevel% neq 0 echo   [WARN] BigQuery Data Editor: permission denied. Ask admin to grant manually.
@@ -96,6 +95,7 @@ call gcloud run deploy %SERVICE% ^
   --platform managed ^
   --region %REGION% ^
   --allow-unauthenticated ^
+  --service-account %SA% ^
   --set-env-vars "GCS_BUCKET_NAME=%BUCKET%,GCP_PROJECT_ID=%PROJECT_ID%,BQ_DATASET=ml_models,BQ_TABLE=model_registry,BQ_LOCATION=%REGION%,GOOGLE_CLIENT_ID=%GOOGLE_CLIENT_ID%,GOOGLE_CLIENT_SECRET=%GOOGLE_CLIENT_SECRET%,GOOGLE_REDIRECT_URI=%GOOGLE_REDIRECT_URI%,SECRET_KEY=%SECRET_KEY%" ^
   --project %PROJECT_ID%
 if %errorlevel% neq 0 (
