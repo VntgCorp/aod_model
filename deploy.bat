@@ -25,15 +25,15 @@ call deploy_secrets.bat
 rem -- Validate required variables --
 if "%GOOGLE_CLIENT_ID%"=="" (
     echo [ERROR] GOOGLE_CLIENT_ID is not set. Check deploy_secrets.bat.
-    pause & exit /b 1
+    pause ^& exit /b 1
 )
 if "%GOOGLE_CLIENT_SECRET%"=="" (
     echo [ERROR] GOOGLE_CLIENT_SECRET is not set.
-    pause & exit /b 1
+    pause ^& exit /b 1
 )
 if "%SECRET_KEY%"=="" (
     echo [ERROR] SECRET_KEY is not set.
-    pause & exit /b 1
+    pause ^& exit /b 1
 )
 if "%GOOGLE_REDIRECT_URI%"=="https://YOUR_CLOUD_RUN_URL/auth/callback" (
     echo [WARN] GOOGLE_REDIRECT_URI is still a placeholder. Update it after first deploy.
@@ -44,22 +44,22 @@ call gcloud config set project %PROJECT_ID%
 
 echo.
 echo [1/5] Creating GCS bucket...
-call gsutil mb -p %PROJECT_ID% -l %REGION% gs://%BUCKET% 2>/dev/null
+call gsutil mb -p %PROJECT_ID% -l %REGION% gs://%BUCKET% 2>nul
 if %errorlevel% neq 0 (
     echo   Bucket already exists. Skipping.
 )
 
 echo.
 echo [2/5] Granting BigQuery roles to Cloud Run service account...
-for /f "delims=" %%N in (\'gcloud projects describe %PROJECT_ID% --format="value(projectNumber)"') do set PROJECT_NUMBER=%%N
+for /f "delims=" %%N in ('gcloud projects describe %PROJECT_ID% --format="value(projectNumber)"') do set PROJECT_NUMBER=%%N
 set SA=%PROJECT_NUMBER%-compute@developer.gserviceaccount.com
 echo   Service Account: %SA%
-call gcloud projects add-iam-policy-binding %PROJECT_ID% --member="serviceAccount:%SA%" --role="roles/bigquery.dataEditor" --quiet 2>/dev/null
-if %errorlevel% neq 0 echo   [WARN] BigQuery Data Editor: permission denied. Ask admin to grant this role manually.
-call gcloud projects add-iam-policy-binding %PROJECT_ID% --member="serviceAccount:%SA%" --role="roles/bigquery.jobUser" --quiet 2>/dev/null
-if %errorlevel% neq 0 echo   [WARN] BigQuery Job User: permission denied. Ask admin to grant this role manually.
-call gcloud projects add-iam-policy-binding %PROJECT_ID% --member="serviceAccount:%SA%" --role="roles/storage.objectAdmin" --quiet 2>/dev/null
-if %errorlevel% neq 0 echo   [WARN] Storage Object Admin: permission denied. Ask admin to grant this role manually.
+call gcloud projects add-iam-policy-binding %PROJECT_ID% --member="serviceAccount:%SA%" --role="roles/bigquery.dataEditor" --quiet 2>nul
+if %errorlevel% neq 0 echo   [WARN] BigQuery Data Editor: permission denied. Ask admin to grant manually.
+call gcloud projects add-iam-policy-binding %PROJECT_ID% --member="serviceAccount:%SA%" --role="roles/bigquery.jobUser" --quiet 2>nul
+if %errorlevel% neq 0 echo   [WARN] BigQuery Job User: permission denied. Ask admin to grant manually.
+call gcloud projects add-iam-policy-binding %PROJECT_ID% --member="serviceAccount:%SA%" --role="roles/storage.objectAdmin" --quiet 2>nul
+if %errorlevel% neq 0 echo   [WARN] Storage Object Admin: permission denied. Ask admin to grant manually.
 
 echo.
 echo [3/5] Building and pushing Docker image...
@@ -81,8 +81,8 @@ if %WAIT% gtr 24 (
     pause
     exit /b 1
 )
-timeout /t 15 /nobreak >/dev/null
-call gcloud container images describe %IMAGE% --project %PROJECT_ID% >/dev/null 2>/dev/null
+timeout /t 15 /nobreak >nul
+call gcloud container images describe %IMAGE% --project %PROJECT_ID% >nul 2>nul
 if %errorlevel% neq 0 (
     echo   Still building... [%WAIT%/24]
     goto poll
@@ -107,7 +107,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo [5/5] Fetching service URL...
-for /f "delims=" %%u in (\'gcloud run services describe %SERVICE% --region %REGION% --project %PROJECT_ID% --format "value(status.url)"') do set URL=%%u
+for /f "delims=" %%u in ('gcloud run services describe %SERVICE% --region %REGION% --project %PROJECT_ID% --format "value(status.url)"') do set URL=%%u
 
 echo.
 echo ================================================
