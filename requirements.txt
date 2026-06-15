@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+google-cloud-storage
+google-cloud-bigquery
+joblib
+scikit-learn
+pandas
+numpy
+jinja2
+python-multipart
+fastapi-sso
+itsdangerous

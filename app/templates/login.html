@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인 · 집값 예측 AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.5s ease forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .google-btn:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.12); transform: translateY(-1px); }
+        .google-btn:active { transform: translateY(0); box-shadow: none; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-sm fade-in">
+
+        <!-- Logo card -->
+        <div class="text-center mb-8">
+            <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-3xl flex items-center justify-center text-3xl mx-auto shadow-lg mb-4">🏠</div>
+            <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">집값 예측 AI 모델</h1>
+            <p class="text-gray-400 text-sm mt-1.5">Linear Regression · Google Cloud</p>
+        </div>
+
+        <!-- Login card -->
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
+            <p class="text-center text-gray-500 text-sm mb-6 font-medium">계속하려면 Google 계정으로 로그인하세요</p>
+
+            <a href="/auth/google"
+               class="google-btn flex items-center justify-center gap-3 w-full border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3.5 px-6 rounded-2xl transition-all duration-150 cursor-pointer">
+                <!-- Google G logo -->
+                <svg width="20" height="20" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M47.532 24.5528C47.532 22.9214 47.3997 21.2811 47.1175 19.6761H24.48V28.9181H37.4434C36.9055 31.8988 35.177 34.5356 32.6461 36.2111V42.2078H40.3801C44.9217 38.0278 47.532 31.8547 47.532 24.5528Z" fill="#4285F4"/>
+                    <path d="M24.48 48.0016C30.9529 48.0016 36.4116 45.8764 40.3888 42.2078L32.6549 36.2111C30.5031 37.675 27.7252 38.5039 24.4888 38.5039C18.2275 38.5039 12.9187 34.2798 11.0139 28.6006H3.03296V34.7825C7.10718 42.8868 15.4056 48.0016 24.48 48.0016Z" fill="#34A853"/>
+                    <path d="M11.0051 28.6006C9.99973 25.6199 9.99973 22.3922 11.0051 19.4115V13.2296H3.03298C-0.371021 20.0112 -0.371021 28.0009 3.03298 34.7825L11.0051 28.6006Z" fill="#FBBC04"/>
+                    <path d="M24.48 9.49932C27.9016 9.44641 31.2086 10.7339 33.6866 13.0973L40.5387 6.24523C36.2 2.17101 30.4414 -0.068932 24.48 0.00161733C15.4055 0.00161733 7.10718 5.11644 3.03296 13.2296L11.005 19.4115C12.901 13.7235 18.2187 9.49932 24.48 9.49932Z" fill="#EA4335"/>
+                </svg>
+                Google로 로그인
+            </a>
+
+            <div class="mt-6 pt-5 border-t border-gray-50 text-center">
+                <p class="text-xs text-gray-400">로그인하면 모델 생성, 테스트, 예측 기능을 사용할 수 있습니다</p>
+            </div>
+        </div>
+
+        <p class="text-center text-xs text-gray-400 mt-6">Powered by Google Cloud Run · GCS</p>
+    </div>
+
+</body>
+</html>

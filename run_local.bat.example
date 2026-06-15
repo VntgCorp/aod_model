@@ -1,0 +1,36 @@
+@echo off
+setlocal
+
+set PROJECT_ROOT=%~dp0
+set GOOGLE_APPLICATION_CREDENTIALS=%PROJECT_ROOT%config\YOUR_SERVICE_ACCOUNT_KEY.json
+set GCS_BUCKET_NAME=YOUR_GCS_BUCKET_NAME
+set GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID
+set GOOGLE_CLIENT_SECRET=YOUR_GOOGLE_CLIENT_SECRET
+set GOOGLE_REDIRECT_URI=http://localhost:8080/auth/callback
+set SECRET_KEY=local-dev-secret-key-change-in-prod
+set GCP_PROJECT_ID=YOUR_GCP_PROJECT_ID
+set BQ_DATASET=ml_models
+set BQ_TABLE=model_registry
+set BQ_LOCATION=asia-northeast3
+
+echo.
+echo ================================================
+echo   House Price Predictor  ^|  Local Run
+echo ================================================
+echo.
+
+echo [1/2] Installing dependencies...
+call pip install -r requirements.txt -q
+if %errorlevel% neq 0 (
+    echo [ERROR] pip install failed.
+    pause
+    exit /b 1
+)
+
+echo.
+echo [2/2] Starting server...
+echo   URL: http://localhost:8080
+echo.
+call uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
+
+pause

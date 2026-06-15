@@ -1,0 +1,6 @@
+__pycache__
+*.pyc
+*.pyo
+.git
+*.ipynb
+프로그램조건.txt

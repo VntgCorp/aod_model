@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>집값 예측 AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .spin { animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .pop { animation: pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes pop {
+            from { opacity: 0; transform: scale(0.85); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+        .card-disabled { opacity: 0.45; pointer-events: none; }
+        .step-glow { box-shadow: 0 0 0 4px rgba(59,130,246,0.25); }
+        .active-row { background-color: #eff6ff; border-left: 4px solid #2563eb; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 shadow-xl">
+        <div class="max-w-5xl mx-auto px-6 py-5">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-white/15 rounded-2xl flex items-center justify-center text-2xl backdrop-blur-sm">🏠</div>
+                    <div>
+                        <h1 class="text-2xl font-extrabold text-white tracking-tight">집값 예측 AI 모델</h1>
+                        <p class="text-blue-200 text-sm font-medium mt-0.5">Linear Regression · GCS · BigQuery · Cloud Run</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    {% if user.picture %}
+                    <img src="{{ user.picture }}" alt="프로필" class="w-9 h-9 rounded-full border-2 border-white/30 object-cover">
+                    {% endif %}
+                    <div class="hidden sm:block text-right">
+                        <p class="text-white text-sm font-semibold leading-tight">{{ user.name }}</p>
+                        <p class="text-blue-200 text-xs">{{ user.email }}</p>
+                    </div>
+                    <a href="/logout"
+                       class="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-2 rounded-xl transition-all duration-150 border border-white/20 ml-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                        </svg>
+                        로그아웃
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-5xl mx-auto px-6 py-10">
+
+        <!-- Step Progress -->
+        <div class="flex items-center mb-10 px-2">
+            <div class="flex flex-col items-center">
+                <div id="c1" class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-2 border-blue-500 bg-blue-500 text-white transition-all duration-300 step-glow">1</div>
+                <span id="l1" class="text-xs font-semibold text-blue-600 mt-1.5 whitespace-nowrap">모델 생성</span>
+            </div>
+            <div class="flex-1 mx-3 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div id="line1" class="h-full bg-blue-500 rounded-full transition-all duration-700" style="width:0%"></div>
+            </div>
+            <div class="flex flex-col items-center">
+                <div id="c2" class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-2 border-gray-300 bg-white text-gray-400 transition-all duration-300">2</div>
+                <span id="l2" class="text-xs font-semibold text-gray-400 mt-1.5 whitespace-nowrap">모델 테스트</span>
+            </div>
+            <div class="flex-1 mx-3 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div id="line2" class="h-full bg-blue-500 rounded-full transition-all duration-700" style="width:0%"></div>
+            </div>
+            <div class="flex flex-col items-center">
+                <div id="c3" class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-2 border-gray-300 bg-white text-gray-400 transition-all duration-300">3</div>
+                <span id="l3" class="text-xs font-semibold text-gray-400 mt-1.5 whitespace-nowrap">새 데이터 예측</span>
+            </div>
+        </div>
+
+        <!-- ───────── STEP 1: 모델 생성 ───────── -->
+        <div id="card1" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 mb-5 transition-all duration-500">
+            <div class="flex items-start gap-4">
+                <div class="w-11 h-11 bg-blue-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                    </svg>
+                </div>
+                <div>
+                    <span class="text-xs font-semibold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">STEP 1</span>
+                    <h2 class="text-xl font-bold text-gray-900 mt-1">모델 생성</h2>
+                    <p class="text-gray-500 text-sm mt-1">방 개수 데이터로 선형회귀 모델을 학습하고 <span class="text-blue-600 font-semibold">GCS에 저장 · BigQuery에 등록</span>합니다.</p>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <button id="btn1" onclick="trainModel()"
+                    class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold px-6 py-3 rounded-xl transition-all duration-150 shadow-sm hover:shadow-md">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    모델 학습 시작
+                </button>
+            </div>
+
+            <div id="res1" class="hidden mt-5 fade-in">
+                <div class="bg-green-50 border border-green-100 rounded-2xl p-5">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                            <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <span class="font-semibold text-green-800 text-sm">학습 완료 · GCS 저장 · BigQuery 등록</span>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <div class="bg-white rounded-xl p-3 text-center shadow-sm">
+                            <div class="text-xs text-gray-400 mb-1">기울기 (coef)</div>
+                            <div class="text-lg font-bold text-gray-800" id="v-coef">—</div>
+                        </div>
+                        <div class="bg-white rounded-xl p-3 text-center shadow-sm">
+                            <div class="text-xs text-gray-400 mb-1">절편 (intercept)</div>
+                            <div class="text-lg font-bold text-gray-800" id="v-intercept">—</div>
+                        </div>
+                        <div class="bg-white rounded-xl p-3 text-center shadow-sm">
+                            <div class="text-xs text-gray-400 mb-1">MAE</div>
+                            <div class="text-lg font-bold text-emerald-600" id="v-mae">—</div>
+                        </div>
+                        <div class="bg-white rounded-xl p-3 text-center shadow-sm">
+                            <div class="text-xs text-gray-400 mb-1">R² Score</div>
+                            <div class="text-lg font-bold text-emerald-600" id="v-r2">—</div>
+                        </div>
+                        <div class="bg-white rounded-xl p-3 text-center shadow-sm">
+                            <div class="text-xs text-gray-400 mb-1">학습 샘플</div>
+                            <div class="text-lg font-bold text-gray-800" id="v-train">—</div>
+                        </div>
+                        <div class="bg-white rounded-xl p-3 text-center shadow-sm">
+                            <div class="text-xs text-gray-400 mb-1">테스트 샘플</div>
+                            <div class="text-lg font-bold text-gray-800" id="v-test">—</div>
+                        </div>
+                    </div>
+                    <div class="mt-3 flex items-center gap-2 bg-blue-50 rounded-xl px-4 py-2.5">
+                        <svg class="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                        <span class="text-xs font-mono text-blue-700 break-all" id="v-gcs">—</span>
+                    </div>
+                </div>
+            </div>
+            <div id="err1" class="hidden mt-5 fade-in">
+                <div class="bg-red-50 border border-red-100 rounded-2xl p-4">
+                    <p class="text-red-700 text-sm font-medium" id="errmsg1"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ───────── STEP 2: 모델 테스트 ───────── -->
+        <div id="card2" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 mb-5 card-disabled transition-all duration-500">
+            <div class="flex items-start gap-4">
+                <div class="w-11 h-11 bg-purple-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <span class="text-xs font-semibold text-purple-500 bg-purple-50 px-2 py-0.5 rounded-full">STEP 2</span>
+                    <h2 class="text-xl font-bold text-gray-900 mt-1">모델 테스트</h2>
+                    <p class="text-gray-500 text-sm mt-1"><span class="text-purple-600 font-semibold">활성 모델을 GCS에서 호출</span>하여 테스트 데이터의 예측 성능을 검증합니다.</p>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <button id="btn2" onclick="testModel()"
+                    class="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-semibold px-6 py-3 rounded-xl transition-all duration-150 shadow-sm hover:shadow-md">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    활성 모델 불러와 테스트
+                </button>
+            </div>
+
+            <div id="res2" class="hidden mt-5 fade-in">
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="bg-purple-50 rounded-2xl p-4 text-center">
+                        <div class="text-xs text-gray-500 mb-1 font-medium">MSE</div>
+                        <div class="text-2xl font-extrabold text-purple-700" id="v-mse">—</div>
+                    </div>
+                    <div class="bg-emerald-50 rounded-2xl p-4 text-center">
+                        <div class="text-xs text-gray-500 mb-1 font-medium">R² Score</div>
+                        <div class="text-2xl font-extrabold text-emerald-700" id="v-r2s">—</div>
+                    </div>
+                </div>
+                <div class="overflow-hidden rounded-2xl border border-gray-100 mb-4">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 border-b border-gray-100">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-semibold text-gray-500">방 개수</th>
+                                <th class="px-4 py-3 text-left font-semibold text-gray-500">실제값 (억)</th>
+                                <th class="px-4 py-3 text-left font-semibold text-gray-500">예측값 (억)</th>
+                                <th class="px-4 py-3 text-left font-semibold text-gray-500">오차</th>
+                            </tr>
+                        </thead>
+                        <tbody id="test-tbody" class="divide-y divide-gray-50"></tbody>
+                    </table>
+                </div>
+                <div class="bg-gray-50 rounded-2xl p-5">
+                    <canvas id="testChart" height="140"></canvas>
+                </div>
+            </div>
+            <div id="err2" class="hidden mt-5 fade-in">
+                <div class="bg-red-50 border border-red-100 rounded-2xl p-4">
+                    <p class="text-red-700 text-sm font-medium" id="errmsg2"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ───────── STEP 3: 새 데이터 예측 ───────── -->
+        <div id="card3" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 mb-5 card-disabled transition-all duration-500">
+            <div class="flex items-start gap-4">
+                <div class="w-11 h-11 bg-emerald-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/>
+                    </svg>
+                </div>
+                <div>
+                    <span class="text-xs font-semibold text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full">STEP 3</span>
+                    <h2 class="text-xl font-bold text-gray-900 mt-1">새 데이터 예측</h2>
+                    <p class="text-gray-500 text-sm mt-1"><span class="text-emerald-600 font-semibold">활성 모델을 GCS에서 호출</span>하여 새로운 방 개수의 집값을 예측합니다.</p>
+                </div>
+            </div>
+
+            <div class="mt-6 flex items-end gap-3 flex-wrap">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">방 개수 입력</label>
+                    <input type="number" id="rooms-input" placeholder="예: 3.5" step="0.5" min="0.5"
+                        class="border border-gray-200 rounded-xl px-4 py-3 w-40 text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition-all"
+                        onkeydown="if(event.key==='Enter') predictPrice()">
+                </div>
+                <button id="btn3" onclick="predictPrice()"
+                    class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-semibold px-6 py-3 rounded-xl transition-all duration-150 shadow-sm hover:shadow-md">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                    예측하기
+                </button>
+            </div>
+
+            <div id="res3" class="hidden mt-6 fade-in">
+                <div class="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl p-7 text-center pop">
+                    <p class="text-sm text-gray-500 font-medium">방 <span id="p-rooms" class="font-bold text-gray-700">—</span>개짜리 집의 예측 가격</p>
+                    <div class="my-4">
+                        <span class="text-6xl font-black text-emerald-600" id="p-price">—</span>
+                        <span class="text-2xl font-bold text-emerald-500 ml-1">억 원</span>
+                    </div>
+                    <div class="inline-flex items-center gap-1.5 text-xs text-gray-400 bg-white/60 px-3 py-1.5 rounded-full">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                        GCS 활성 모델 호출 완료
+                    </div>
+                </div>
+            </div>
+            <div id="err3" class="hidden mt-5 fade-in">
+                <div class="bg-red-50 border border-red-100 rounded-2xl p-4">
+                    <p class="text-red-700 text-sm font-medium" id="errmsg3"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ───────── 모델 관리 (BigQuery) ───────── -->
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 mt-5">
+            <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+                <div class="flex items-start gap-4">
+                    <div class="w-11 h-11 bg-sky-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="text-xs font-semibold text-sky-500 bg-sky-50 px-2 py-0.5 rounded-full">BigQuery</span>
+                        <h2 class="text-xl font-bold text-gray-900 mt-1">모델 관리</h2>
+                        <p class="text-gray-500 text-sm mt-1">버전별 모델 목록을 확인하고 적용할 모델을 선택합니다.</p>
+                    </div>
+                </div>
+                <button onclick="loadModels()"
+                    class="inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
+                    <svg id="refresh-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    새로고침
+                </button>
+            </div>
+
+            <!-- 로딩 -->
+            <div id="ml-loading" class="flex items-center justify-center py-12 text-gray-400 gap-3">
+                <svg class="w-5 h-5 spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                <span class="text-sm">BigQuery에서 모델 목록을 불러오는 중...</span>
+            </div>
+
+            <!-- 빈 상태 -->
+            <div id="ml-empty" class="hidden text-center py-12">
+                <div class="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+                    </svg>
+                </div>
+                <p class="text-gray-500 font-medium" id="ml-empty-msg">등록된 모델이 없습니다. Step 1에서 모델을 생성하세요.</p>
+            </div>
+
+            <!-- 모델 테이블 -->
+            <div id="ml-table-wrap" class="hidden overflow-x-auto rounded-2xl border border-gray-100">
+                <table class="w-full text-xs min-w-max">
+                    <thead class="bg-gray-50 border-b border-gray-100">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-500 whitespace-nowrap">파일명</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-500 whitespace-nowrap">생성일시</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-500 whitespace-nowrap">모델종류</th>
+                            <th class="px-4 py-3 text-center font-semibold text-gray-500">MAE</th>
+                            <th class="px-4 py-3 text-center font-semibold text-gray-500">R²</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-500 whitespace-nowrap">회귀계수</th>
+                            <th class="px-4 py-3 text-center font-semibold text-gray-500">절편</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-500">X인자</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-500">Y인자</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-500">생성자</th>
+                            <th class="px-4 py-3 text-center font-semibold text-gray-500">상태</th>
+                            <th class="px-4 py-3 text-center font-semibold text-gray-500">적용</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ml-tbody" class="divide-y divide-gray-50"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div><!-- /max-w -->
+
+<script>
+let chartInstance = null;
+let _models = [];
+
+// ── 공통 헬퍼 ──
+function showLoading(btnId, label) {
+    const btn = document.getElementById(btnId);
+    btn.disabled = true;
+    btn.innerHTML = `<svg class="w-4 h-4 spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>${label}`;
+}
+
+function resetBtn(btnId, html) {
+    const btn = document.getElementById(btnId);
+    btn.disabled = false;
+    btn.innerHTML = html;
+}
+
+function showErr(n, msg) {
+    document.getElementById(`errmsg${n}`).textContent = msg;
+    document.getElementById(`err${n}`).classList.remove('hidden');
+}
+
+function activateCard(n) {
+    document.getElementById(`card${n}`).classList.remove('card-disabled');
+    const c = document.getElementById(`c${n}`);
+    const l = document.getElementById(`l${n}`);
+    c.className = 'w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-2 border-blue-500 bg-blue-500 text-white transition-all duration-300 step-glow';
+    l.className = 'text-xs font-semibold text-blue-600 mt-1.5 whitespace-nowrap';
+}
+
+function doneStep(n) {
+    const c = document.getElementById(`c${n}`);
+    c.innerHTML = `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>`;
+    c.className = 'w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 border-green-500 bg-green-500 text-white transition-all duration-300';
+    if (n < 3) {
+        document.getElementById(`line${n}`).style.width = '100%';
+        setTimeout(() => activateCard(n + 1), 450);
+    }
+}
+
+// ── STEP 1 ──
+async function trainModel() {
+    const orig = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>모델 학습 시작`;
+    showLoading('btn1', ' 학습 중...');
+    document.getElementById('res1').classList.add('hidden');
+    document.getElementById('err1').classList.add('hidden');
+
+    try {
+        const r = await fetch('/api/train', { method: 'POST' });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.detail || '오류 발생');
+
+        document.getElementById('v-coef').textContent = d.coefficient;
+        document.getElementById('v-intercept').textContent = d.intercept;
+        document.getElementById('v-mae').textContent = d.mae;
+        document.getElementById('v-r2').textContent = d.r2_score;
+        document.getElementById('v-train').textContent = d.train_samples + '개';
+        document.getElementById('v-test').textContent = d.test_samples + '개';
+        document.getElementById('v-gcs').textContent = d.gcs_path;
+        document.getElementById('res1').classList.remove('hidden');
+        resetBtn('btn1', orig);
+        doneStep(1);
+        await loadModels();
+    } catch (e) {
+        showErr(1, e.message);
+        resetBtn('btn1', orig);
+    }
+}
+
+// ── STEP 2 ──
+async function testModel() {
+    const orig = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>활성 모델 불러와 테스트`;
+    showLoading('btn2', ' 테스트 중...');
+    document.getElementById('res2').classList.add('hidden');
+    document.getElementById('err2').classList.add('hidden');
+
+    try {
+        const r = await fetch('/api/test');
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.detail || '오류 발생');
+
+        document.getElementById('v-mse').textContent = d.mse;
+        document.getElementById('v-r2s').textContent = d.r2_score;
+
+        const tbody = document.getElementById('test-tbody');
+        tbody.innerHTML = '';
+        d.results.forEach(row => {
+            const diff = (row.predicted - row.actual).toFixed(2);
+            const cls = Math.abs(diff) < 0.05 ? 'text-green-600' : 'text-orange-500';
+            tbody.innerHTML += `
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 font-semibold text-gray-700">${row.rooms}개</td>
+                    <td class="px-4 py-3 text-gray-600">${row.actual}억</td>
+                    <td class="px-4 py-3 text-blue-600 font-semibold">${row.predicted}억</td>
+                    <td class="px-4 py-3 text-sm font-medium ${cls}">${diff > 0 ? '+' : ''}${diff}</td>
+                </tr>`;
+        });
+
+        if (chartInstance) chartInstance.destroy();
+        chartInstance = new Chart(document.getElementById('testChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: d.results.map(r => `방 ${r.rooms}개`),
+                datasets: [
+                    { label: '실제값 (억)', data: d.results.map(r => r.actual),    backgroundColor: 'rgba(139,92,246,0.75)', borderRadius: 7 },
+                    { label: '예측값 (억)', data: d.results.map(r => r.predicted), backgroundColor: 'rgba(59,130,246,0.75)',  borderRadius: 7 }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'top' },
+                    title: { display: true, text: '실제값 vs 예측값 비교', font: { size: 13, weight: '600' } }
+                },
+                scales: { y: { beginAtZero: false, ticks: { callback: v => v + '억' } } }
+            }
+        });
+
+        document.getElementById('res2').classList.remove('hidden');
+        resetBtn('btn2', orig);
+        doneStep(2);
+    } catch (e) {
+        showErr(2, e.message);
+        resetBtn('btn2', orig);
+    }
+}
+
+// ── STEP 3 ──
+async function predictPrice() {
+    const rooms = parseFloat(document.getElementById('rooms-input').value);
+    if (!rooms || rooms <= 0) { alert('방 개수를 입력해주세요.'); return; }
+
+    const orig = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>예측하기`;
+    showLoading('btn3', ' 예측 중...');
+    document.getElementById('res3').classList.add('hidden');
+    document.getElementById('err3').classList.add('hidden');
+
+    try {
+        const r = await fetch('/api/predict', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rooms })
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.detail || '오류 발생');
+
+        document.getElementById('p-rooms').textContent = d.rooms;
+        document.getElementById('p-price').textContent = d.predicted_price;
+        document.getElementById('res3').classList.remove('hidden');
+        resetBtn('btn3', orig);
+        doneStep(3);
+    } catch (e) {
+        showErr(3, e.message);
+        resetBtn('btn3', orig);
+    }
+}
+
+// ── 모델 관리 ──
+async function loadModels() {
+    const loading = document.getElementById('ml-loading');
+    const empty = document.getElementById('ml-empty');
+    const tableWrap = document.getElementById('ml-table-wrap');
+    const refreshIcon = document.getElementById('refresh-icon');
+
+    loading.classList.remove('hidden');
+    empty.classList.add('hidden');
+    tableWrap.classList.add('hidden');
+    refreshIcon.classList.add('spin');
+
+    try {
+        const r = await fetch('/api/models');
+        if (!r.ok) throw new Error('모델 목록 로드 실패');
+        _models = await r.json();
+
+        loading.classList.add('hidden');
+        refreshIcon.classList.remove('spin');
+
+        if (_models.length === 0) {
+            empty.classList.remove('hidden');
+            return;
+        }
+
+        const hasActive = _models.some(m => m.is_active);
+        if (hasActive) {
+            activateCard(2);
+            activateCard(3);
+        }
+
+        renderModelTable();
+        tableWrap.classList.remove('hidden');
+    } catch (e) {
+        loading.classList.add('hidden');
+        refreshIcon.classList.remove('spin');
+        const msg = document.getElementById('ml-empty-msg');
+        msg.textContent = '모델 목록 로드 실패: ' + e.message;
+        empty.classList.remove('hidden');
+    }
+}
+
+function renderModelTable() {
+    const tbody = document.getElementById('ml-tbody');
+    tbody.innerHTML = '';
+
+    _models.forEach(m => {
+        const isActive = m.is_active;
+        const filename = (m.model_filename || '').split('/').pop();
+        const createdAt = m.created_at
+            ? new Date(m.created_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+            : '-';
+        const coefStr = Array.isArray(m.coef) ? m.coef.join(', ') : (m.coef ?? '-');
+        const xStr = Array.isArray(m.x_features) ? m.x_features.join(', ') : (m.x_features ?? '-');
+        const mae = m.mae != null ? m.mae : '-';
+        const r2 = m.r2_score != null ? m.r2_score : '-';
+        const intercept = m.intercept != null ? m.intercept : '-';
+
+        const maeCls = typeof mae === 'number' && mae < 0.5 ? 'text-green-600' : 'text-orange-500';
+        const r2Cls = typeof r2 === 'number' && r2 >= 0.9 ? 'text-green-600' : 'text-orange-500';
+
+        const tr = document.createElement('tr');
+        tr.className = isActive ? 'active-row' : 'hover:bg-gray-50 transition-colors';
+        tr.innerHTML = `
+            <td class="px-4 py-3 font-mono text-gray-700 whitespace-nowrap text-xs">${filename}</td>
+            <td class="px-4 py-3 text-gray-600 whitespace-nowrap">${createdAt}</td>
+            <td class="px-4 py-3 whitespace-nowrap">
+                <span class="bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded-full font-medium">${m.model_type || '-'}</span>
+            </td>
+            <td class="px-4 py-3 text-center font-semibold ${maeCls}">${mae}</td>
+            <td class="px-4 py-3 text-center font-semibold ${r2Cls}">${r2}</td>
+            <td class="px-4 py-3 font-mono text-gray-600 whitespace-nowrap">[${coefStr}]</td>
+            <td class="px-4 py-3 font-mono text-gray-600 text-center">${intercept}</td>
+            <td class="px-4 py-3 text-gray-600">${xStr}</td>
+            <td class="px-4 py-3 text-gray-600">${m.y_feature || '-'}</td>
+            <td class="px-4 py-3 text-gray-500 whitespace-nowrap max-w-[120px] truncate" title="${m.created_by || ''}">${m.created_by || '-'}</td>
+            <td class="px-4 py-3 text-center">
+                ${isActive
+                    ? `<span class="inline-flex items-center gap-1 bg-blue-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+                           <span class="w-1.5 h-1.5 bg-white rounded-full"></span>적용중
+                       </span>`
+                    : `<span class="text-xs text-gray-400 font-medium">비활성</span>`
+                }
+            </td>
+            <td class="px-4 py-3 text-center">
+                ${isActive
+                    ? `<button disabled class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed">적용중</button>`
+                    : `<button onclick="activateModel('${m.model_id}')"
+                               class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 active:scale-95 text-white transition-all">
+                           적용
+                       </button>`
+                }
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+async function activateModel(modelId) {
+    try {
+        const r = await fetch(`/api/models/${modelId}/activate`, { method: 'POST' });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.detail || '모델 적용 실패');
+        await loadModels();
+    } catch (e) {
+        alert('오류: ' + e.message);
+    }
+}
+
+// ── 초기화 ──
+document.addEventListener('DOMContentLoaded', () => {
+    loadModels();
+});
+</script>
+</body>
+</html>
